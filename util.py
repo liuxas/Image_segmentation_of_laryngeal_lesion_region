@@ -15,15 +15,20 @@ def get_dir(origin_path,mask_path):
     mask_image_paths.sort(key=lambda x: int(x.split("/")[-1].split("_")[0])+int(x.split("/")[-1].split("_")[1][:-4]))
     return origin_image_paths,mask_image_paths
 
-def generator_train_data(images_path,masks_path):
-    data_gen_args = dict(rotation_range=90,zoom_range=0.2)
+def generator_train_data(images_path,masks_path,batch_size):
+    data_gen_args = dict(featurewise_center=True,
+                     featurewise_std_normalization=True,
+                     rotation_range=90,
+                     width_shift_range=0.1,
+                     height_shift_range=0.1,
+                     zoom_range=0.2)
     image_datagen = ImageDataGenerator(**data_gen_args)
     mask_datagen = ImageDataGenerator(**data_gen_args)
     seed = 1
     image_generator = image_datagen.flow_from_directory(directory=images_path,class_mode=None,seed=seed,
-    target_size=(480,480),batch_size=2)
+    target_size=(480,480),batch_size=batch_size)
     mask_generator = mask_datagen.flow_from_directory(directory=masks_path,class_mode=None,seed=seed,
-    target_size=(480,480),batch_size=2,color_mode="grayscale")
+    target_size=(480,480),batch_size=batch_size,color_mode="grayscale")
     train_generator = zip(image_generator, mask_generator)
     return train_generator
 

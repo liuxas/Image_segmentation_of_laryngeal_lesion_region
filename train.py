@@ -1,3 +1,5 @@
+import os
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 import cv2
 import keras
 import numpy as np
@@ -8,15 +10,10 @@ from keras.applications.vgg16 import VGG16
 from keras.layers import (Activation, Conv2D, Dense, Dropout, Flatten,
                           MaxPooling2D, UpSampling2D, concatenate, core)
 from PIL import Image
-from tensorflow.python.framework import ops
-from tensorflow.python.ops import clip_ops, math_ops
 
 import util
-
 gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
-tf.config.experimental.set_virtual_device_configuration(gpus[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
-
-
+tf.config.experimental.set_virtual_device_configuration(gpus[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8000)])
 def custom_loss(y_true, y_pred,axis=-1):
     y_true = ops.convert_to_tensor_v2(y_true)
     y_pred = ops.convert_to_tensor_v2(y_pred)
@@ -114,31 +111,36 @@ def pre_vgg16(input_shape):
 my_model = pre_vgg16((480,480,3))
 
 def generator_modify(batch_size,images_path,masks_path):
-    train_generator = util.generator_train_data(images_path,masks_path)
+    train_generator = util.generator_train_data(images_path,masks_path,batch_size)
     while True:
         for img,label in train_generator:
-            label_new = np.empty((2,480,480,1))
+            label_new = np.empty((batch_size,480,480,1))
             for i in range(batch_size):
                 tem = cv2.threshold(label[i],0,1,cv2.THRESH_BINARY)
                 tem = tem[1].reshape(480,480,1)
                 label_new[i,:,:,:] = tem
-            label_new = keras.utils.to_categorical(label_new)
-            label_new = label_new.reshape(2,480*480,2)
+            if np.max(label_new)==0:
+                label_new = np.zeros((batch_size,480,480,2))
+                label_new[:,:,:0] = 1
+            else:
+                label_new = keras.utils.to_categorical(label_new)
+            label_new = label_new.reshape(batch_size,480*480,2)
             img = img/255.0+0.0000001
             yield (img,label_new)
 
 
-my_model.fit_generator(generator=generator_modify(2,images_path="/home/liux/文档/项目/seg_lar/train_new/hh1/",masks_path="/home/liux/文档/项目/seg_lar/train_new/hh2/")
-,steps_per_epoch=500,epochs=20,validation_data=generator_modify(2,images_path="/home/liux/文档/项目/seg_lar/test/hh1/",masks_path="/home/liux/文档/项目/seg_lar/test/hh2/"),
-validation_steps=38,shuffle=True)
+my_model.fit_generator(generator=generator_modify(2,images_path="/home/lx/liux_project/seg_lar/train_new/sum1/",masks_path="/home/lx/liux_project/seg_lar/train_new/sum2/")
+,steps_per_epoch=2000,epochs=30,validation_data=generator_modify(2,images_path="/home/lx/liux_project/seg_lar/test/sum1/",masks_path="/home/lx/liux_project/seg_lar/test/sum2/"),
+validation_steps=130,shuffle=True)
 
 # my_model.fit_generator(generator=generator_modify(2,images_path="/home/liux/文档/项目/seg_lar/train_new/hh3/",masks_path="/home/liux/文档/项目/seg_lar/train_new/hh4/")
 # ,steps_per_epoch=200,epochs=10,shuffle=True)
+my_model.save("best_model_sum.h5")
 
 
 
 
-img = Image.open("/home/liux/文档/项目/seg_lar/nan_/7460210312972_13.jpg")
+img = Image.open("/home/liux/文档/项目/seg_lar/nan_/596510524385_13.jpg")
 img = img.resize((480,480))
 img = np.asarray(img)
 img = img.astype("float32")
@@ -150,7 +152,6 @@ result = np.argmax(result,axis=2)
 result = result.reshape(480,480,1)
 result = result.astype("float32")
 tem = cv2.threshold(result,0,255,cv2.THRESH_BINARY)
-cv2.imwrite("./nan_/7460210312972_13.png",tem[1])
+cv2.imwrite("./nan_/596510524385_13.jpg",tem[1])
+set_trace()
 
-
-# set_trace()
